@@ -1,5 +1,5 @@
 ---
-name: "📌 작업 이슈 템플릿"
+name: "📌 Issue Template"
 about: "새로운 작업(Task)을 등록할 때 사용하는 양식입니다."
 title: "[Task] "
 labels: "enhancement"
