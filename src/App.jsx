@@ -1,121 +1,62 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState } from 'react';
+import { LogIn } from 'lucide-react';
+import MainPage from './constants/main-page.jsx';
+import AdminDashboard from './constants/admin-dashboard.jsx';
+import LoginModal from './constants/login-modal.jsx';
 
-function App() {
-  const [count, setCount] = useState(0)
+// ============================================================
+// 최상위 App - 로그인 상태와 화면 전환 관리
+// ============================================================
+export default function App() {
+    const [isAdmin, setIsAdmin] = useState(false);   // 관리자 로그인 여부
+    const [view, setView] = useState('main');        // 'main' | 'admin'
+    const [loginOpen, setLoginOpen] = useState(false);
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    const handleLogin = () => {
+        setIsAdmin(true);
+        setLoginOpen(false);
+    };
 
-      <div className="ticks"></div>
+    const handleLogout = () => {
+        setIsAdmin(false);
+        setView('main');
+    };
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+    return (
+        <>
+            {view === 'main' && (
+                <>
+                    <MainPage
+                        isAdmin={isAdmin}
+                        onSwitchToAdmin={() => setView('admin')}
+                        onLogout={handleLogout}
+                    />
+                    {/* 비로그인 상태일 때만 우측 상단에 로그인 버튼 노출 */}
+                    {!isAdmin && (
+                        <button
+                            onClick={() => setLoginOpen(true)}
+                            className="fixed top-4 right-4 z-50 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-lg flex items-center gap-1.5 transition-colors"
+                            style={{ fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif" }}
+                        >
+                            <LogIn size={13} />
+                            관리자 로그인
+                        </button>
+                    )}
+                </>
+            )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            {view === 'admin' && isAdmin && (
+                <AdminDashboard
+                    onSwitchToMain={() => setView('main')}
+                    onLogout={handleLogout}
+                />
+            )}
+
+            <LoginModal
+                open={loginOpen}
+                onLogin={handleLogin}
+                onClose={() => setLoginOpen(false)}
+            />
+        </>
+    );
 }
-
-export default App
