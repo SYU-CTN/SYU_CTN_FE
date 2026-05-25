@@ -3,8 +3,8 @@
 // 위치: client/src/constants/api.js
 // ============================================================
 
-const API_BASE_URL = 'http://localhost:8080/V1/api';
-
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8080";
+const BASE_URL = API_BASE_URL;
 // ===== 공통 fetch 래퍼 =====
 async function apiFetch(path, options = {}) {
     const response = await fetch(`${API_BASE_URL}${path}`, {

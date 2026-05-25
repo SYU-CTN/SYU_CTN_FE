@@ -52,7 +52,8 @@ function computeLayout(visibleCourses, layoutOverride) {
         const row = override?.row ?? 0;
         if (row > maxRow) maxRow = row;
 
-        const colIdx = course.grade - 1;
+        const currentGrade = course.gradeLevel !== undefined ? course.gradeLevel : course.grade;
+        const colIdx = (currentGrade || 1) - 1;
         const columnX = PADDING_X + colIdx * COL_WIDTH;
 
         let x, width;
@@ -149,15 +150,13 @@ function roundedPath(points) {
         if (inDx === outDx && inDy === outDy) path += ` L ${cx},${cy}`;
         else path += ` Q ${cx},${cy} ${cx + outDx * r},${cy + outDy * r}`;
     }
-    const last = points[points.length - 1];
-    path += ` L ${last[0]},${last[1]}`;
+    path += ` L ${points[points.length - 1][0]},${points[points.length - 1][1]}`;
     return path;
 }
 
 // ===== 드래그 가능한 카드 컴포넌트 =====
 function CourseCard({ course, position, onClick, selected, dimmed, related, isDragMode, onDragStart, isDragging }) {
     const track = tracks.find(t => t.id === course.category) || tracks[0];
-
     let borderColor = track.cardBorder;
     let bgColor = '#ffffff';
     let shadow = '0 1px 2px rgba(15, 23, 42, 0.06)';
@@ -323,8 +322,7 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse }) {
     }
 
     const track = tracks.find(t => t.id === course.category) || tracks[0];
-    const prereqs = edges.filter(([_, post]) => post === course.id).map(([pre]) => allCourses.find(c => c.id === pre)).filter(Boolean);
-    const nextCourses = edges.filter(([pre]) => pre === course.id).map(([_, post]) => allCourses.find(c => c.id === post)).filter(Boolean);
+    const currentCode = course.courseCode || course.code || '';
 
     return (
         <div>
@@ -389,8 +387,14 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse }) {
     );
 }
 
-// ===== 메인 =====
-export function MainPage({ isAdmin = false, onSwitchToAdmin, onLogout } = {}) {
+// ===== 메인 컴포넌트 =====
+export function MainPage({ onSwitchToAdmin } = {}) {
+    // 💡 1. [실전 연동 핵심] 브라우저에 저장된 진짜 'user_role' 상태값을 실시간 감지하여 상태 세팅
+    const [isAdmin, setIsAdmin] = useState(() => {
+        const savedRole = localStorage.getItem('user_role');
+        return savedRole === 'ADMIN' || savedRole === 'INSTRUCTOR'; // 관리자나 교수자일 때 true
+    });
+
     const [courses, setCourses] = useState([]);
     const [prerequisites, setPrerequisites] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -436,7 +440,24 @@ export function MainPage({ isAdmin = false, onSwitchToAdmin, onLogout } = {}) {
         loadData();
     }, []);
 
-    // 컨테이너 크기 측정
+    // 💡 2. [실전 연동 핵심] 브라우저의 Storage 변화를 실시간으로 추적하여 다른 탭이나 로그인 완료 시 UI 즉시 동기화
+    useEffect(() => {
+        const checkRole = () => {
+            const savedRole = localStorage.getItem('user_role');
+            setIsAdmin(savedRole === 'ADMIN' || savedRole === 'INSTRUCTOR');
+        };
+
+        window.addEventListener('storage', checkRole);
+        // 로컬 가동 전용 폴링 주기 추가 (동일 창 내부 세션 컨트롤 지원)
+        const interval = setInterval(checkRole, 1000);
+
+        return () => {
+            window.removeEventListener('storage', checkRole);
+            clearInterval(interval);
+        };
+    }, []);
+
+    // 컨테이너 계측
     useEffect(() => {
         if (!canvasContainerRef.current) return;
         const observer = new ResizeObserver((entries) => {
@@ -448,13 +469,28 @@ export function MainPage({ isAdmin = false, onSwitchToAdmin, onLogout } = {}) {
         return () => observer.disconnect();
     }, []);
 
+    // 💡 3. [실전 연동 핵심] 로그아웃 시 로컬 스토리지 역매핑 적용 (STUDENT로 강제 격리)
+    const handleLogout = () => {
+        localStorage.setItem('user_role', 'STUDENT');
+        setIsAdmin(false);
+        setSelectedCourse(null);
+        if (typeof onLogout === 'function') onLogout();
+        alert('성공적으로 로그아웃되었습니다. 학생 조회 모드로 귀환합니다.');
+    };
+
     const visibleCourses = useMemo(() => {
+        if (!courses) return [];
         return courses.filter((c) => {
-            if (!gradeFilters[c.grade]) return false;
-            if (!trackFilters[c.category]) return false;
+            if (!c) return false;
+            const currentGrade = c.gradeLevel !== undefined ? c.gradeLevel : c.grade;
+            const currentCode = c.courseCode || c.code || '';
+            const currentTitle = c.title || '';
+
+            if (currentGrade && !gradeFilters[currentGrade]) return false;
+            if (c.category && !trackFilters[c.category]) return false;
             if (search.trim() !== '') {
                 const q = search.trim().toLowerCase();
-                if (!c.title.toLowerCase().includes(q) && !c.code.toLowerCase().includes(q)) return false;
+                if (!currentTitle.toLowerCase().includes(q) && !currentCode.toLowerCase().includes(q)) return false;
             }
             return true;
         });
@@ -491,6 +527,7 @@ export function MainPage({ isAdmin = false, onSwitchToAdmin, onLogout } = {}) {
     }, [selectedCourse, prerequisites]);
 
     const visibleEdges = useMemo(() => {
+        if (!visibleCourses.length || !courses.length) return [];
         const visibleIds = new Set(visibleCourses.map(c => c.id));
         const courseMap = Object.fromEntries(courses.map(c => [c.id, c]));
         return prerequisites.filter(([a, b]) => {
@@ -806,7 +843,7 @@ export function MainPage({ isAdmin = false, onSwitchToAdmin, onLogout } = {}) {
                                     }}>
                                         <LogOut size={12} /> 로그아웃
                                     </button>
-                                </>
+                                </div>
                             )}
                         </div>
                     </aside>
