@@ -4,7 +4,7 @@ export const gradeGroups = [
     {
         id: 'grade',
         type: 'group',
-        data: { label: '' }, // 그룹 레이블은 비워둡니다.
+        data: { label: '' }, // 룹 레이블은 비워둡니다.
         position: { x: 0, y: 0 },
         style: {
             width: 2500,
