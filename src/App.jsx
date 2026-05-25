@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn } from 'lucide-react';
-import MainPage from './constants/main-page.jsx';
+import { MainPage } from './pages/main-page.jsx';
 import AdminDashboard from './constants/admin-dashboard.jsx';
 import LoginModal from './constants/login-modal.jsx';
 
