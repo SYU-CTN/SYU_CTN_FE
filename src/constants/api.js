@@ -1,31 +1,54 @@
 import axios from 'axios';
 
-// 백엔드 Spring Boot 8080 서버 주소 바인딩
 const API_BASE_URL = 'http://localhost:8080/V1';
 
+const apiClient = axios.create({
+    baseURL: API_BASE_URL,
+});
+
 export const courseApi = {
-    // 1. 전체 과목 조회 (기존 연동 데이터)
     getAll: async () => {
-        const response = await axios.get(`${API_BASE_URL}/courses`);
+        const response = await apiClient.get('/courses');
         return response.data;
     },
 
-    // 2. 🛠️ [12번 이슈] 신규 과목 등록 파이프라인 (POST)
     create: async (courseData) => {
-        const response = await axios.post(`${API_BASE_URL}/courses`, courseData);
+        const response = await apiClient.post('/courses', courseData);
         return response.data;
     },
 
-    // 3. 🛠️ [12번 이슈] 기존 과목 수정 파이프라인 (PATCH)
     update: async (id, courseData) => {
-        const response = await axios.patch(`${API_BASE_URL}/courses/${id}`, courseData);
+        try {
+            const response = await apiClient.patch(`/courses/${id}`, courseData);
+            return response.data;
+        } catch (error) {
+            if (error.response?.status !== 404 && error.response?.status !== 405) {
+                throw error;
+            }
+            const response = await apiClient.put(`/courses/${id}`, courseData);
+            return response.data;
+        }
+    },
+
+    delete: async (id) => {
+        const response = await apiClient.delete(`/courses/${id}`);
         return response.data;
-    }
+    },
 };
 
 export const prerequisiteApi = {
     getAll: async () => {
-        const response = await axios.get(`${API_BASE_URL}/prerequisites`);
+        const response = await apiClient.get('/prerequisites');
         return response.data;
-    }
+    },
+
+    create: async (preCourseId, postCourseId) => {
+        const response = await apiClient.post('/prerequisites', { preCourseId, postCourseId });
+        return response.data;
+    },
+
+    deleteByPair: async (preCourseId, postCourseId) => {
+        const response = await apiClient.delete('/prerequisites', { data: { preCourseId, postCourseId } });
+        return response.data;
+    },
 };

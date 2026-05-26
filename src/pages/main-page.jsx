@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Search, BookOpen, Settings, Users, X, GitBranch, ChevronRight, Info, Layers, MessageCircle, Plus, Minus, Maximize2, LogOut, Move, GripVertical, Save, RotateCcw } from 'lucide-react';
-import { courseApi, prerequisiteApi } from './api.js'; // 💡 팀원들이 변경해둔 최종 동등 폴더 api 경로 바인딩
+import { courseApi, prerequisiteApi } from '../constants/api.js'; // 💡 도연님 로컬 트랙 정석 경로로 밀봉
 
 const tracks = [
     { id: '공통', label: '공통', dot: 'bg-slate-500', text: 'text-slate-700', bg: 'bg-slate-50', cardBorder: '#cbd5e1' },
@@ -29,10 +29,8 @@ const PADDING_X = 24;
 const PADDING_Y = 24;
 const MAX_ROWS = 20;
 
-// ===== 기본 layoutOverride =====
 const DEFAULT_LAYOUT_OVERRIDE = {
-    101: { row: 0 }, 102: { row: 2 },
-    103: { row: 0 }, 104: { row: 3 }, 105: { row: 9 },
+    101: { row: 0 }, 102: { row: 2 }, 103: { row: 0 }, 104: { row: 3 }, 105: { row: 9 },
     106: { row: 0 }, 107: { row: 1 }, 108: { row: 2 }, 109: { row: 5 }, 110: { row: 6 }, 111: { row: 7 }, 112: { row: 9 },
     113: { row: 0 }, 114: { row: 1 }, 115: { row: 2 }, 116: { row: 3 }, 117: { row: 5 }, 118: { row: 7 }, 119: { row: 9 }, 120: { row: 10 },
     121: { row: 2 }, 122: { row: 3 }, 123: { row: 4 }, 124: { row: 5 }, 125: { row: 7 }, 126: { row: 8 }, 127: { row: 9 }, 128: { row: 10 }, 129: { row: 11 }, 130: { row: 12 },
@@ -181,11 +179,10 @@ function CourseCard({ course, position, onClick, selected, dimmed, related, isDr
                 padding: '6px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', userSelect: 'none', zIndex: 2,
             }}
         >
-            {/* 🔒 최고 관리자일 때만 우측 상단 톱니바퀴 노출 (위치 편집모드가 아닐 때 노출) */}
             {isAdmin && !isDragMode && (
                 <button
                     onClick={(e) => {
-                        e.stopPropagation(); // 카드 선택 버블링 차단
+                        e.stopPropagation();
                         onEditClick(course);
                     }}
                     className="absolute top-1 right-1 w-4 h-4 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all cursor-pointer"
@@ -236,7 +233,7 @@ function SnapHighlight({ snapTarget, layout, effectiveZoom, canvasOffset }) {
     );
 }
 
-function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse }) {
+function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse, isAdmin, onEditCourse }) {
     if (!course) {
         return (
             <div style={{ padding: '40px 24px', textAlign: 'center' }}>
@@ -248,23 +245,32 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse }) {
             </div>
         );
     }
-
     const track = tracks.find(t => t.id === course.category) || tracks[0];
     const currentCode = course.courseCode || course.code || '';
 
-    // 선수/후속 데이터 계산기 바인딩
+    // 🎯 [수리 완료] 팀원 코드에서 누락되어 폭탄 터뜨리던 핵심 선수/후속 변수를 완벽하게 정밀 타격 복원
     const prereqs = allCourses.filter(c => edges.some(([pre, post]) => post === course.id && pre === c.id));
     const nextCourses = allCourses.filter(c => edges.some(([pre, post]) => pre === course.id && post === c.id));
 
     return (
         <div>
             <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifycontent: 'space-between', gap: 8, marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 11, fontWeight: 500, borderRadius: 6, background: '#f1f5f9', color: '#334155' }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: track.dot.includes('slate') ? '#64748b' : track.dot.includes('emerald') ? '#10b981' : '#6366f1', display: 'inline-block' }} />
                         {track.label}
                     </span>
-                    <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}><X size={15} /></button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {isAdmin && (
+                            <button
+                                onClick={() => onEditCourse(course)}
+                                style={{ height: 28, padding: '0 9px', borderRadius: 7, border: '1px solid #ddd6fe', background: '#f5f3ff', color: '#6d28d9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}
+                            >
+                                <Settings size={13} /> 수정
+                            </button>
+                        )}
+                        <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}><X size={15} /></button>
+                    </div>
                 </div>
                 <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#94a3b8', marginBottom: 4 }}>{currentCode}</p>
                 <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', lineHeight: 1.3, margin: 0 }}>{course.title}</h3>
@@ -277,6 +283,8 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse }) {
                     </div>
                 ))}
             </div>
+
+            {/* 🎯 [수리 완료] 바인딩이 풀리면서 에러를 내뿜던 데이터 루프 구역 완벽 마감 복구 */}
             {[{ label: '선수 과목', color: '#fbbf24', items: prereqs }, { label: '후속 과목', color: '#818cf8', items: nextCourses }].map(({ label, color, items }) => (
                 <div key={label} style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
@@ -301,80 +309,137 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse }) {
     );
 }
 
-// ===== [피그마 Pro 디자인] 데이터 연동 모달 컴포넌트 =====
+const EMPTY_COURSE_FORM = {
+    title: '',
+    courseCode: '',
+    credits: 3,
+    category: '공통',
+    gradeLevel: 1,
+    semester: 1,
+};
+
+function getCourseFormInitialValue(course) {
+    if (!course) return EMPTY_COURSE_FORM;
+    return {
+        title: course.title || '',
+        courseCode: course.courseCode || course.code || '',
+        credits: course.credits || 3,
+        category: course.category || '공통',
+        gradeLevel: course.gradeLevel || course.grade || 1,
+        semester: course.semester || 1,
+    };
+}
+
 function CourseFormModal({ isOpen, onClose, editingCourse, onRefresh }) {
-    if (!isOpen) return null;
-    const [formData, setFormData] = useState({
-        title: editingCourse?.title || '',
-        courseCode: editingCourse?.courseCode || editingCourse?.code || '',
-        credits: editingCourse?.credits || 3,
-        category: editingCourse?.category || '공통',
-        gradeLevel: editingCourse?.gradeLevel || editingCourse?.grade || 1,
-        semester: editingCourse?.semester || 1
-    });
+    const closeTimerRef = useRef(null);
+    const [formData, setFormData] = useState(() => getCourseFormInitialValue(editingCourse));
+    const [isSaving, setIsSaving] = useState(false);
+    const [isClosing, setIsClosing] = useState(false);
+    const [formError, setFormError] = useState('');
 
     useEffect(() => {
-        setFormData({
-            title: editingCourse?.title || '',
-            courseCode: editingCourse?.courseCode || editingCourse?.code || '',
-            credits: editingCourse?.credits || 3,
-            category: editingCourse?.category || '공통',
-            gradeLevel: editingCourse?.gradeLevel || editingCourse?.grade || 1,
-            semester: editingCourse?.semester || 1
-        });
+        if (!isOpen) return;
+        setFormData(getCourseFormInitialValue(editingCourse));
+        setFormError('');
+        setIsSaving(false);
+        setIsClosing(false);
     }, [editingCourse, isOpen]);
+
+    useEffect(() => () => {
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    }, []);
+
+    const requestClose = useCallback(() => {
+        if (isSaving || isClosing) return;
+        setIsClosing(true);
+        closeTimerRef.current = setTimeout(() => {
+            if (!editingCourse) setFormData(EMPTY_COURSE_FORM);
+            setFormError('');
+            setIsClosing(false);
+            onClose();
+        }, 180);
+    }, [editingCourse, isClosing, isSaving, onClose]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSaving) return;
         if (!formData.title.trim() || !formData.courseCode.trim()) {
-            alert('과목명과 학수 코드는 필수 사항입니다.');
+            setFormError('과목명과 학수 코드는 필수 사항입니다.');
             return;
         }
+        setIsSaving(true);
+        setFormError('');
         try {
             if (editingCourse) {
                 await courseApi.update(editingCourse.id, formData);
-                alert('교과 과목 정보가 수정되었습니다.');
             } else {
                 await courseApi.create(formData);
-                alert('새로운 교과 과목이 성공적으로 저장되었습니다.');
             }
             await onRefresh();
-            onClose();
+            setFormData(EMPTY_COURSE_FORM);
+            setIsClosing(true);
+            closeTimerRef.current = setTimeout(() => {
+                setIsSaving(false);
+                setIsClosing(false);
+                onClose();
+            }, 220);
         } catch (error) {
             console.error(error);
-            alert('서버 통신 중 오류가 발생했습니다.');
+            setFormError('서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+            setIsSaving(false);
         }
     };
 
+    if (!isOpen && !isClosing) return null;
+
+    const modalTitle = editingCourse ? '교과 과목 정보 수정' : '새로운 교과 과목 등록';
+    const modalDescription = editingCourse ? '기존 과목 정보를 수정해 커리큘럼 트리에 반영합니다.' : '신규 과목의 기본 정보를 입력해 커리큘럼 트리에 추가합니다.';
+    const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400';
+    const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-700';
+
     return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" style={{ zIndex: 99999 }}>
-            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-[420px] overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                        <BookOpen size={16} className="text-indigo-600" />
-                        {editingCourse ? '⚙️ 교과 과목 정보 수정 (DB 연동)' : '➕ 새로운 교과 과목 등록 (DB 연동)'}
-                    </h3>
-                    <button type="button" onClick={onClose} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors cursor-pointer"><X size={14} /></button>
+        <div
+            className={`fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+            style={{ zIndex: 99999 }}
+            onMouseDown={(e) => {
+                if (e.target === e.currentTarget) requestClose();
+            }}
+        >
+            <div className={`w-full max-w-[460px] overflow-hidden rounded-xl border border-violet-100 bg-white shadow-[0_24px_80px_rgba(88,28,135,0.28)] transition-all duration-200 ${isClosing ? 'translate-y-2 scale-[0.98] opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}>
+                <div className="relative overflow-hidden border-b border-violet-100 bg-gradient-to-br from-violet-50 via-white to-indigo-50 px-6 py-5">
+                    <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-violet-500 via-indigo-500 to-fuchsia-500" />
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white shadow-lg shadow-violet-600/25">
+                                <BookOpen size={18} />
+                            </div>
+                            <div className="min-w-0 text-left">
+                                <h3 className="text-base font-bold leading-6 text-slate-900">{modalTitle}</h3>
+                                <p className="mt-0.5 text-xs leading-5 text-slate-500">{modalDescription}</p>
+                            </div>
+                        </div>
+                        <button type="button" onClick={requestClose} disabled={isSaving} className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"><X size={16} /></button>
+                    </div>
                 </div>
-                <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5 text-left">
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">과목명 *</label>
-                        <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="예: 웹프로그래밍" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
+                        <label className={labelClass}>과목명 <span className="text-violet-600">*</span></label>
+                        <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="예: 웹프로그래밍" disabled={isSaving} className={inputClass} />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">과목 학수 코드 *</label>
-                        <input type="text" value={formData.courseCode} onChange={e => setFormData({...formData, courseCode: e.target.value})} placeholder="예: CS0023" className="w-full px-3 py-2 text-sm font-mono border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
+                        <label className={labelClass}>과목 학수 코드 <span className="text-violet-600">*</span></label>
+                        <input type="text" value={formData.courseCode} onChange={e => setFormData({...formData, courseCode: e.target.value})} placeholder="예: CS0023" disabled={isSaving} className={`${inputClass} font-mono`} />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">개설 학년</label>
-                            <select value={formData.gradeLevel} onChange={e => setFormData({...formData, gradeLevel: Number(e.target.value)})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none bg-white">
+                            <label className={labelClass}>개설 학년</label>
+                            <select value={formData.gradeLevel} onChange={e => setFormData({...formData, gradeLevel: Number(e.target.value)})} disabled={isSaving} className={inputClass}>
                                 {[1,2,3,4].map(g => <option key={g} value={g}>{g}학년</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">개설 학기</label>
-                            <select value={formData.semester} onChange={e => setFormData({...formData, semester: Number(e.target.value)})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none bg-white">
+                            <label className={labelClass}>개설 학기</label>
+                            <select value={formData.semester} onChange={e => setFormData({...formData, semester: Number(e.target.value)})} disabled={isSaving} className={inputClass}>
                                 <option value={1}>1학기</option>
                                 <option value={2}>2학기</option>
                             </select>
@@ -382,24 +447,30 @@ function CourseFormModal({ isOpen, onClose, editingCourse, onRefresh }) {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">학점수</label>
-                            <select value={formData.credits} onChange={e => setFormData({...formData, credits: Number(e.target.value)})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none bg-white">
+                            <label className={labelClass}>학점수</label>
+                            <select value={formData.credits} onChange={e => setFormData({...formData, credits: Number(e.target.value)})} disabled={isSaving} className={inputClass}>
                                 {[1,2,3,4].map(c => <option key={c} value={c}>{c}학점</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">이수 트랙 분류</label>
-                            <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none bg-white">
+                            <label className={labelClass}>이수 트랙 분류</label>
+                            <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} disabled={isSaving} className={inputClass}>
                                 <option value="공통">공통</option>
                                 <option value="SW전공">SW전공</option>
                                 <option value="컴공전공">컴공전공</option>
                             </select>
                         </div>
                     </div>
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">취소</button>
-                        <button type="submit" className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-all cursor-pointer">
-                            {editingCourse ? 'DB 수정 반영' : 'DB 등록 완료'}
+                    {formError && (
+                        <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
+                            {formError}
+                        </div>
+                    )}
+                    <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+                        <button type="button" onClick={requestClose} disabled={isSaving} className="cursor-pointer rounded-lg px-4 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">취소</button>
+                        <button type="submit" disabled={isSaving} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-violet-600/25 transition-all hover:bg-violet-700 hover:shadow-violet-600/35 disabled:cursor-wait disabled:bg-violet-400">
+                            <Save size={14} />
+                            {isSaving ? '저장 중...' : editingCourse ? 'DB 수정 반영' : 'DB 등록 완료'}
                         </button>
                     </div>
                 </form>
@@ -408,9 +479,9 @@ function CourseFormModal({ isOpen, onClose, editingCourse, onRefresh }) {
     );
 }
 
-// ===== 메인 컴포넌트 =====
-export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
+export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onLogout } = {}) {
     const [isAdmin, setIsAdmin] = useState(() => {
+        if (typeof isAdminProp === 'boolean') return isAdminProp;
         const savedRole = localStorage.getItem('user_role');
         return savedRole === 'ADMIN' || savedRole === 'INSTRUCTOR';
     });
@@ -427,11 +498,9 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
     const canvasContainerRef = useRef(null);
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
-    // ===== 신규 등록 및 수정 제어 모달 전용 로컬 활성기 복원 =====
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCourse, setEditingCourse] = useState(null);
 
-    // 드래그&드롭 상태
     const [isDragMode, setIsDragMode] = useState(false);
     const [dragging, setDragging] = useState(null);
     const [snapTarget, setSnapTarget] = useState(null);
@@ -466,16 +535,21 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
 
     useEffect(() => {
         const checkRole = () => {
+            if (typeof isAdminProp === 'boolean') {
+                setIsAdmin(isAdminProp);
+                return;
+            }
             const savedRole = localStorage.getItem('user_role');
             setIsAdmin(savedRole === 'ADMIN' || savedRole === 'INSTRUCTOR');
         };
+        checkRole();
         window.addEventListener('storage', checkRole);
         const interval = setInterval(checkRole, 1000);
         return () => {
             window.removeEventListener('storage', checkRole);
             clearInterval(interval);
         };
-    }, []);
+    }, [isAdminProp]);
 
     useEffect(() => {
         if (!canvasContainerRef.current) return;
@@ -645,9 +719,8 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
         <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif" }}>
             <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
 
-            {/* 위치 편집 모드 상단 배너 */}
             {isDragMode && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'linear-gradient(90deg, #4f46e5, #7c3aed)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'linear-gradient(90deg, #4f46e5, #7c3aed)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifycontent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Move size={14} color="white" />
                         <span style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>위치 편집 모드</span>
@@ -666,9 +739,9 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
             )}
 
             <header style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: isDragMode ? 36 : 0, zIndex: 40 }}>
-                <div style={{ padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifycontent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #6366f1, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(79,70,229,0.3)' }}><GitBranch size={18} color="white" /></div>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #6366f1, #4f46e5)', display: 'flex', alignItems: 'center', justifycontent: 'center', boxShadow: '0 2px 8px rgba(79,70,229,0.3)' }}><GitBranch size={18} color="white" /></div>
                         <div>
                             <h1 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', lineHeight: 1.2, margin: 0 }}>Tree Navigator</h1>
                             <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.2, margin: 0 }}>컴퓨터공학부 교과과정 이수 체계도</p>
@@ -685,7 +758,6 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
 
             <div style={{ padding: '16px' }}>
                 <div style={{ display: 'flex', gap: 12, height: `calc(100vh - ${isDragMode ? 132 : 96}px)` }}>
-                    {/* 좌측 필터/컨트롤러 사이드바 패널 */}
                     <aside style={{ width: 220, background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
                         <div style={{ padding: 16, borderBottom: '1px solid #f1f5f9' }}>
                             <div style={{ position: 'relative' }}>
@@ -717,39 +789,27 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
 
                         <div style={{ padding: 12, borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <button onClick={resetFilters} style={{ width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 500, color: '#475569', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>필터 초기화</button>
-                            <button style={{ width: '100%', padding: '9px 12px', fontSize: 12, fontWeight: 600, color: 'white', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><MessageCircle size={13} /> AI 상담</button>
+                            <button style={{ width: '100%', padding: '9px 12px', fontSize: 12, fontWeight: 600, color: 'white', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: 6 }}><MessageCircle size={13} /> AI 상담</button>
 
-                            {/* 🎯 관리자 모드 전용 인서트 슛 툴킷 노출 구역 */}
                             {isAdmin && (
                                 <div style={{ marginTop: 4, paddingTop: 8, borderTop: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', paddingLeft: 4, textTransform: 'uppercase' }}>교과과정 관리</p>
 
-                                    {/* ➕ 과목 신규 등록 다이렉트 트리거 완착 완료 */}
-                                    <button
-                                        onClick={() => { setEditingCourse(null); setIsModalOpen(true); }}
-                                        style={{ width: '100%', padding: '9px 12px', fontSize: 12, fontWeight: 700, color: 'white', background: '#4f46e5', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, transition: 'background 0.2s' }}
-                                        onMouseEnter={e => e.currentTarget.style.background = '#4338ca'}
-                                        onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
-                                    >
-                                        <Plus size={13} /> 과목 신규 등록
-                                    </button>
-
-                                    <button onClick={() => setIsDragMode(m => !m)} style={{ width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 600, color: isDragMode ? '#4f46e5' : '#334155', background: isDragMode ? '#eef2ff' : '#f1f5f9', border: isDragMode ? '1px solid #c7d2fe' : '1px solid transparent', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Move size={13} /> {isDragMode ? '위치 배치중...' : '카드 순서 편집'}</button>
-                                    <button onClick={onSwitchToAdmin} style={{ width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 600, color: '#334155', background: '#f1f5f9', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Settings size={13} /> 관리 대시보드</button>
-                                    <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 500, color: '#ef4444', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><LogOut size={12} /> 로그아웃</button>
+                                    <button onClick={() => setIsDragMode(m => !m)} style={{ width: '100%', padding: '8px 12px', fontSize: 12, color: isDragMode ? '#4f46e5' : '#334155', background: isDragMode ? '#eef2ff' : '#f1f5f9', border: isDragMode ? '1px solid #c7d2fe' : '1px solid transparent', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: 6 }}><Move size={13} /> {isDragMode ? '위치 배치중...' : '카드 순서 편집'}</button>
+                                    <button onClick={onSwitchToAdmin} style={{ width: '100%', padding: '8px 12px', fontSize: 12, color: '#334155', background: '#f1f5f9', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: 6 }}><Settings size={13} /> 관리 대시보드</button>
+                                    <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', fontSize: 12, color: '#ef4444', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: 6 }}><LogOut size={12} /> 로그아웃</button>
                                 </div>
                             )}
                         </div>
                     </aside>
 
-                    {/* 중앙 이수 체계도 보드 캔버스 */}
                     <section style={{ flex: 1, background: 'white', border: isDragMode ? '2px solid #c7d2fe' : '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', minWidth: 0, transition: 'border-color 0.2s' }}>
                         <div ref={canvasContainerRef} style={{ flex: 1, overflow: 'hidden', background: isDragMode ? 'rgba(238,242,255,0.3)' : 'rgba(248,250,252,0.3)', position: 'relative' }}>
                             {visibleCourses.length === 0 ? (
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifycontent: 'center' }}>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}><Search size={22} color="#94a3b8" /></div>
-                                        <p style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 4 }}>표시할 과목이 없습니다</p>
+                                        <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifycontent: 'center', margin: '0 auto 12px' }}><Search size={22} color="#94a3b8" /></div>
+                                        <p style={{ fontSize: 13, color: '#475569', marginBottom: 4 }}>표시할 과목이 없습니다</p>
                                         <p style={{ fontSize: 12, color: '#94a3b8' }}>필터를 조정하거나 검색어를 변경해보세요</p>
                                     </div>
                                 </div>
@@ -762,17 +822,16 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
                                     <div style={{ position: 'absolute', top: '50%', left: '50%', width: layout.canvasWidth * effectiveZoom, height: layout.canvasHeight * effectiveZoom, transform: 'translate(-50%, -50%)' }}>
                                         <div style={{ position: 'absolute', top: 0, left: 0, width: layout.canvasWidth, height: layout.canvasHeight, transform: `scale(${effectiveZoom})`, transformOrigin: '0 0' }}>
 
-                                            {/* 학년/학기 트랙 기둥 배경 렌더러 */}
                                             {[1, 2, 3, 4].map((g, i) => {
                                                 const left = PADDING_X + i * COL_WIDTH;
                                                 const style = gradeStyle[g];
                                                 return (
                                                     <div key={g} style={{ position: 'absolute', left, top: PADDING_Y, width: COL_WIDTH, height: layout.columnHeight, background: isDragMode ? style.bg.replace('f5', 'f0').replace('e8', 'e0') : style.bg, border: isDragMode ? '1px dashed #a5b4fc' : '1px dashed #cbd5e1', borderRadius: 8, zIndex: 0 }}>
-                                                        <div style={{ position: 'absolute', top: COLUMN_PADDING_TOP, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 24px)', height: HEADER_HEIGHT - 8, background: style.headerBg, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2 }}>
-                                                            <span style={{ fontSize: 14, fontWeight: 700, color: style.headerText }}>{g}학년</span>
+                                                        <div style={{ position: 'absolute', top: COLUMN_PADDING_TOP, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 24px)', height: HEADER_HEIGHT - 8, background: style.headerBg, borderRadius: 6, display: 'flex', alignItems: 'center', justifycontent: 'center', flexDirection: 'column', gap: 2 }}>
+                                                            <span style={{ fontSize: 14, color: style.headerText }}>{g}학년</span>
                                                             <div style={{ display: 'flex', gap: SEMESTER_GAP, marginTop: 1 }}>
                                                                 {[1, 2].map(s => (
-                                                                    <span key={s} style={{ fontSize: 9, fontWeight: 600, color: style.headerText, opacity: 0.75, width: SEMESTER_COL_WIDTH - 10, textAlign: 'center' }}>{s}학기</span>
+                                                                    <span key={s} style={{ fontSize: 9, color: style.headerText, opacity: 0.75, width: SEMESTER_COL_WIDTH - 10, textAlign: 'center' }}>{s}학기</span>
                                                                 ))}
                                                             </div>
                                                         </div>
@@ -789,7 +848,6 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
                                                 );
                                             })}
 
-                                            {/* 간선 의존성 화살표 패스선 */}
                                             <svg style={{ position: 'absolute', top: 0, left: 0, width: layout.canvasWidth, height: layout.canvasHeight, pointerEvents: 'none', zIndex: 1, opacity: isDragMode ? 0.35 : 1, transition: 'opacity 0.2s' }}>
                                                 <defs>
                                                     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" /></marker>
@@ -807,7 +865,6 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
                                                 })}
                                             </svg>
 
-                                            {/* 과목 카드 렌더러 구역 */}
                                             {visibleCourses.map((course) => {
                                                 const pos = layout.positions[course.id];
                                                 if (!pos) return null;
@@ -824,7 +881,7 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
                                                         onDragStart={handleDragStart}
                                                         isDragging={dragging?.course?.id === course.id}
                                                         isAdmin={isAdmin}
-                                                        onEditClick={(c) => { setEditingCourse(c); setIsModalOpen(true); }} // ⚙️ 카드 수정 톱니바퀴도 100% 실시간 연동 완료
+                                                        onEditClick={(c) => { setEditingCourse(c); setIsModalOpen(true); }}
                                                     />
                                                 );
                                             })}
@@ -834,17 +891,15 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
                             )}
                         </div>
 
-                        {/* 줌 컨트롤러 패널 */}
                         <div style={{ position: 'absolute', bottom: 16, left: 16, display: 'flex', flexDirection: 'column', gap: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 2px 8px rgba(15,23,42,0.08)', overflow: 'hidden' }}>
-                            <button onClick={() => { setAutoFit(false); setZoom(z => Math.min(2, (autoFit ? fitZoom : z) + 0.1)); }} title="확대" style={{ width: 32, height: 32, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}><Plus size={14} /></button>
+                            <button onClick={() => { setAutoFit(false); setZoom(z => Math.min(2, (autoFit ? fitZoom : z) + 0.1)); }} title="확대" style={{ width: 32, height: 32, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifycontent: 'center', color: '#475569' }}><Plus size={14} /></button>
                             <div style={{ padding: '2px 4px', fontSize: 10, textAlign: 'center', color: '#94a3b8', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontVariantNumeric: 'tabular-nums' }}>{Math.round(effectiveZoom * 100)}%</div>
-                            <button onClick={() => { setAutoFit(false); setZoom(z => Math.max(0.3, (autoFit ? fitZoom : z) - 0.1)); }} title="축소" style={{ width: 32, height: 32, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}><Minus size={14} /></button>
-                            <button onClick={() => setAutoFit(true)} title="화면에 맞춤" style={{ width: 32, height: 32, border: 'none', background: autoFit ? '#eef2ff' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: autoFit ? '#4f46e5' : '#475569', borderTop: '1px solid #f1f5f9' }}><Maximize2 size={12} /></button>
+                            <button onClick={() => { setAutoFit(false); setZoom(z => Math.max(0.3, (autoFit ? fitZoom : z) - 0.1)); }} title="축소" style={{ width: 32, height: 32, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifycontent: 'center', color: '#475569' }}><Minus size={14} /></button>
+                            <button onClick={() => setAutoFit(true)} title="화면에 맞춤" style={{ width: 32, height: 32, border: 'none', background: autoFit ? '#eef2ff' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifycontent: 'center', color: autoFit ? '#4f46e5' : '#475569', borderTop: '1px solid #f1f5f9' }}><Maximize2 size={12} /></button>
                         </div>
 
-                        {/* 우측 하단 트랙 범례 패널 */}
                         <div style={{ position: 'absolute', bottom: 16, right: 16, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 2px 8px rgba(15,23,42,0.08)', padding: '8px 12px' }}>
-                            <p style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>범례</p>
+                            <p style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>범례</p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 {tracks.map(t => (
                                     <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -856,20 +911,38 @@ export function MainPage({ onSwitchToAdmin, onLogout } = {}) {
                         </div>
                     </section>
 
-                    {/* 우측 단일 정보 디스크립션 패널 */}
                     <aside style={{ width: 256, background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, overflowY: 'auto', flexShrink: 0, opacity: isDragMode ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isDragMode ? 'none' : 'auto' }}>
-                        <DetailPanel course={selectedCourse} onClose={() => setSelectedCourse(null)} allCourses={courses} edges={prerequisites} onSelectCourse={setSelectedCourse} />
+                        <DetailPanel
+                            course={selectedCourse}
+                            onClose={() => setSelectedCourse(null)}
+                            allCourses={courses}
+                            edges={prerequisites}
+                            onSelectCourse={setSelectedCourse}
+                            isAdmin={isAdmin}
+                            onEditCourse={(course) => { setEditingCourse(course); setIsModalOpen(true); }}
+                        />
                     </aside>
                 </div>
             </div>
 
-            {/* 마우스 포인터 전역 고스트 카드 추적 레이어 */}
+            {isAdmin && !isDragMode && (
+                <button
+                    type="button"
+                    onClick={() => { setEditingCourse(null); setIsModalOpen(true); }}
+                    title="과목 추가"
+                    style={{ position: 'fixed', right: 28, bottom: 28, zIndex: 60, width: 54, height: 54, borderRadius: 16, border: '1px solid rgba(124, 58, 237, 0.22)', background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 18px 42px rgba(91, 33, 182, 0.32)', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 22px 50px rgba(91, 33, 182, 0.38)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 18px 42px rgba(91, 33, 182, 0.32)'; }}
+                >
+                    <Plus size={26} />
+                </button>
+            )}
+
             {dragging && (
                 <GhostCard course={dragging.course} x={dragging.currentX - dragOffsetRef.current.x} y={dragging.currentY - dragOffsetRef.current.y} width={CARD_WIDTH * effectiveZoom} />
             )}
 
-            {/* 💡 [대부활 완료] 피그마 Pro 스펙 과목 등록/수정 동기화 폼 모달 */}
-            <CourseFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} editingCourse={editingCourse} onRefresh={loadData} />
+            <CourseFormModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingCourse(null); }} editingCourse={editingCourse} onRefresh={loadData} />
         </div>
     );
 }

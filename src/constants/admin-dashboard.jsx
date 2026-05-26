@@ -356,9 +356,16 @@ function ConfirmDeleteModal({ open, onClose, onConfirm, courseName }) {
     );
 }
 
-function StatCard({ label, value, sublabel, accent }) {
+function StatCard({ label, value, sublabel, accent, tone = 'slate' }) {
+    const toneClass = {
+        slate: 'bg-white hover:border-slate-300',
+        violet: 'bg-violet-50/70 border-violet-100 hover:border-violet-200',
+        emerald: 'bg-emerald-50/60 border-emerald-100 hover:border-emerald-200',
+        indigo: 'bg-indigo-50/60 border-indigo-100 hover:border-indigo-200',
+    }[tone];
+
     return (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors">
+        <div className={`border border-slate-200 rounded-xl p-5 transition-colors shadow-sm ${toneClass}`}>
             <div className="flex items-baseline justify-between mb-1">
                 <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</span>
                 <span className={`w-1.5 h-1.5 rounded-full ${accent}`}></span>
@@ -631,8 +638,12 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
         (async () => {
             try {
                 setLoading(true);
-                const data = await courseApi.getAll();
-                setCourses(data);
+                const [courseData, prerequisiteData] = await Promise.all([
+                    courseApi.getAll(),
+                    prerequisiteApi.getAll(),
+                ]);
+                setCourses(courseData);
+                setPrerequisites(prerequisiteData);
             } catch (err) {
                 console.error(err);
                 showToast('과목 데이터를 불러오지 못했습니다', 'error');
@@ -659,8 +670,10 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
     }, [activeTab]);
 
     const filteredCourses = useMemo(() => courses.filter(c => {
-        const ms = search === '' || c.title.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase());
-        const mg = filterGrade === 'all' || c.grade === parseInt(filterGrade);
+        const code = c.code || c.courseCode || '';
+        const grade = c.grade ?? c.gradeLevel;
+        const ms = search === '' || c.title.toLowerCase().includes(search.toLowerCase()) || code.toLowerCase().includes(search.toLowerCase());
+        const mg = filterGrade === 'all' || grade === parseInt(filterGrade);
         const mc = filterCategory === 'all' || c.category === filterCategory;
         return ms && mg && mc;
     }), [courses, search, filterGrade, filterCategory]);
@@ -673,13 +686,23 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
     const filteredPreCourses = useMemo(() => {
         if (!preSearch.trim()) return courses;
         const q = preSearch.toLowerCase();
-        return courses.filter(c => c.title.toLowerCase().includes(q) || c.code.toLowerCase().includes(q));
+        return courses.filter(c => c.title.toLowerCase().includes(q) || (c.code || c.courseCode || '').toLowerCase().includes(q));
     }, [courses, preSearch]);
 
     const prereqPairs = useMemo(() =>
             prerequisites.map(p => [p.preCourseId, p.postCourseId]),
         [prerequisites]
     );
+
+    const prereqCodesByCourse = useMemo(() => {
+        const byId = Object.fromEntries(courses.map(course => [course.id, course.code || course.courseCode]));
+        return prerequisites.reduce((acc, item) => {
+            const preCode = byId[item.preCourseId];
+            if (!preCode) return acc;
+            acc[item.postCourseId] = acc[item.postCourseId] ? `${acc[item.postCourseId]}, ${preCode}` : preCode;
+            return acc;
+        }, {});
+    }, [courses, prerequisites]);
 
     // ── 과목 CRUD ─────────────────────────────────────────────
     const handleSave = async (formData) => {
@@ -779,7 +802,7 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
     const resetFilters = () => { setSearch(''); setFilterGrade('all'); setFilterCategory('all'); };
 
     return (
-        <div className="min-h-screen bg-slate-50"
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50/50"
              style={{ fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif" }}>
             <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
 
@@ -787,26 +810,56 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
             <header className="bg-white border-b border-slate-200 sticky top-0 z-40 backdrop-blur-md bg-white/90">
                 <div className="px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-sm">
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-600/20">
                             <GitBranch size={18} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-base font-bold text-slate-900 leading-tight">Tree Navigator</h1>
-                            <p className="text-xs text-slate-500 leading-tight">코스 관리 시스템</p>
+                            <h1 className="text-base font-bold text-slate-900 leading-tight">최고 관리자 제어 대시보드</h1>
+                            <p className="text-xs text-slate-500 leading-tight">교과목 메타데이터 및 선수관계 관리</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-md border border-indigo-100">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-                        <span className="text-xs font-medium text-indigo-700">관리자 계정</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 rounded-md border border-violet-100">
+                        <div className="w-1.5 h-1.5 rounded-full bg-violet-500"></div>
+                        <span className="text-xs font-medium text-violet-700">MASTER ADMIN</span>
                     </div>
                 </div>
             </header>
 
-            <div className="px-4 py-4">
-                <div className="flex gap-3" style={{ height: 'calc(100vh - 96px)' }}>
+            <div className="px-5 py-5">
+                <section className="mb-5 overflow-hidden rounded-xl border border-violet-100 bg-white shadow-[0_18px_50px_rgba(88,28,135,0.10)]">
+                    <div className="relative px-6 py-5">
+                        <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-violet-500 via-indigo-500 to-fuchsia-500" />
+                        <div className="flex items-center justify-between gap-6">
+                            <div className="min-w-0">
+                                <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-violet-100 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                                    Curriculum Control
+                                </div>
+                                <h2 className="text-2xl font-bold tracking-tight text-slate-950">교과과정 운영 콘솔</h2>
+                                <p className="mt-1 text-sm text-slate-500">과목 데이터, 권장 학년, 전공 구분, 선수관계를 한 화면에서 검수하고 수정합니다.</p>
+                            </div>
+                            <div className="grid min-w-[420px] grid-cols-3 gap-3">
+                                <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                                    <p className="text-xs font-medium text-slate-500">총 과목</p>
+                                    <p className="mt-1 text-2xl font-bold tabular-nums text-slate-950">{stats.total}</p>
+                                </div>
+                                <div className="rounded-lg border border-violet-100 bg-violet-50 px-4 py-3">
+                                    <p className="text-xs font-medium text-violet-600">선수관계</p>
+                                    <p className="mt-1 text-2xl font-bold tabular-nums text-violet-700">{prerequisites.length}</p>
+                                </div>
+                                <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
+                                    <p className="text-xs font-medium text-emerald-600">전공 트랙</p>
+                                    <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-700">3</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div className="flex gap-4" style={{ height: 'calc(100vh - 220px)' }}>
 
                     {/* 좌측 패널 */}
-                    <aside className="w-56 bg-white border border-slate-200 rounded-xl flex flex-col overflow-hidden flex-shrink-0">
+                    <aside className="w-56 bg-white border border-slate-200 rounded-xl flex flex-col overflow-hidden flex-shrink-0 shadow-sm">
                         <div className="p-4 border-b border-slate-100">
                             <h2 className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                                 <Search size={12} />검색
@@ -831,7 +884,7 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
                                             <input type="radio" checked={filterGrade === g} onChange={() => setFilterGrade(g)} className="w-3.5 h-3.5 text-indigo-600 cursor-pointer" />
                                             <span className="text-sm text-slate-700">{g === 'all' ? '전체' : `${g}학년`}</span>
                                             <span className="ml-auto text-[10px] text-slate-400">
-                                                {g === 'all' ? courses.length : courses.filter(c => c.grade === parseInt(g)).length}
+                                                {g === 'all' ? courses.length : courses.filter(c => (c.grade ?? c.gradeLevel) === parseInt(g)).length}
                                             </span>
                                         </label>
                                     ))}
@@ -889,7 +942,7 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
                             )}
                             <div className="border-t border-slate-100 pt-2"></div>
                             <button onClick={onSwitchToMain}
-                                    className="w-full px-3 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 rounded-md transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                                    className="w-full px-3 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 rounded-md transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-violet-600/20">
                                 <GitBranch size={13} />메인페이지 보기
                             </button>
                             <button onClick={onLogout}
@@ -900,14 +953,14 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
                     </aside>
 
                     {/* 본문 */}
-                    <main className="flex-1 overflow-hidden min-w-0 flex flex-col">
+                    <main className="flex-1 overflow-hidden min-w-0 flex flex-col rounded-xl border border-slate-200 bg-white/70 p-4 shadow-sm">
 
                         {/* 탭 */}
                         <div className="flex items-center gap-1 mb-4 bg-white border border-slate-200 rounded-xl p-1.5 self-start">
                             <button
                                 onClick={() => setActiveTab('courses')}
                                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
-                                    activeTab === 'courses' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                                    activeTab === 'courses' ? 'bg-violet-600 text-white shadow-sm shadow-violet-600/20' : 'text-slate-600 hover:bg-slate-100'
                                 }`}
                             >
                                 <BookOpen size={14} />과목 관리
@@ -915,12 +968,12 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
                             <button
                                 onClick={() => setActiveTab('prerequisites')}
                                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
-                                    activeTab === 'prerequisites' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                                    activeTab === 'prerequisites' ? 'bg-violet-600 text-white shadow-sm shadow-violet-600/20' : 'text-slate-600 hover:bg-slate-100'
                                 }`}
                             >
                                 <Link size={14} />선수관계 관리
                                 <span className={`text-xs tabular-nums px-1.5 py-0.5 rounded-full ${
-                                    activeTab === 'prerequisites' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-600'
+                                    activeTab === 'prerequisites' ? 'bg-violet-500 text-white' : 'bg-slate-200 text-slate-600'
                                 }`}>{prerequisites.length}</span>
                             </button>
                         </div>
@@ -930,25 +983,25 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
                             <div className="flex-1 overflow-y-auto">
                                 <div className="mb-5">
                                     <h2 className="text-2xl font-bold text-slate-900 mb-1">과목 관리</h2>
-                                    <p className="text-sm text-slate-500">전체 과목을 추가, 수정, 삭제할 수 있습니다</p>
+                                    <p className="text-sm text-slate-500">제공된 교과목 ID, 권장학년, 전공구분, 선수과목 ID를 기준으로 관리합니다</p>
                                 </div>
                                 <div className="grid grid-cols-4 gap-3 mb-5">
-                                    <StatCard label="전체 과목" value={stats.total} sublabel="개" accent="bg-indigo-500" />
+                                    <StatCard label="전체 과목" value={stats.total} sublabel="개" accent="bg-violet-500" tone="violet" />
                                     <StatCard label="공통" value={stats.common} sublabel="개" accent="bg-slate-500" />
-                                    <StatCard label="SW전공" value={stats.sw} sublabel="개" accent="bg-emerald-500" />
-                                    <StatCard label="컴공전공" value={stats.cs} sublabel="개" accent="bg-indigo-500" />
+                                    <StatCard label="SW전공" value={stats.sw} sublabel="개" accent="bg-emerald-500" tone="emerald" />
+                                    <StatCard label="컴공전공" value={stats.cs} sublabel="개" accent="bg-indigo-500" tone="indigo" />
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-white to-violet-50/60">
                                         <p className="text-xs text-slate-600">
                                             총 <span className="font-semibold text-slate-900 tabular-nums">{filteredCourses.length}</span>개의 과목
                                             {(search || filterGrade !== 'all' || filterCategory !== 'all') && (
-                                                <button onClick={resetFilters} className="ml-3 text-indigo-600 hover:text-indigo-700 font-medium">필터 초기화</button>
+                                                <button onClick={resetFilters} className="ml-3 text-violet-600 hover:text-violet-700 font-medium">필터 초기화</button>
                                             )}
                                         </p>
                                         <button onClick={() => { setEditingCourse(null); setModalOpen(true); }}
-                                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+                                                className="px-4 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors flex items-center gap-1.5 shadow-lg shadow-violet-600/20">
                                             <Plus size={15} />과목 추가
                                         </button>
                                     </div>
@@ -956,21 +1009,21 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
                                         <table className="w-full">
                                             <thead>
                                             <tr className="bg-slate-50/80 border-b border-slate-100">
-                                                {['과목 코드','과목명','학점','구분','학년','학기','액션'].map((h, i) => (
-                                                    <th key={h} className={`px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider ${i === 1 ? 'text-left' : i === 0 ? 'text-left w-[110px]' : i === 6 ? 'text-right w-[100px]' : 'text-center'} ${i === 2 ? 'w-[80px]' : i === 3 ? 'w-[120px]' : i === 4 || i === 5 ? 'w-[90px]' : ''}`}>{h}</th>
+                                                {['ID','과목명','권장학년','전공구분','선수과목_ID','학점','학기','액션'].map((h, i) => (
+                                                    <th key={h} className={`px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider ${i === 1 ? 'text-left' : i === 0 ? 'text-left w-[96px]' : i === 7 ? 'text-right w-[100px]' : 'text-center'} ${i === 2 || i === 5 || i === 6 ? 'w-[90px]' : i === 3 ? 'w-[120px]' : i === 4 ? 'w-[150px]' : ''}`}>{h}</th>
                                                 ))}
                                             </tr>
                                             </thead>
                                             <tbody>
                                             {loading ? (
-                                                <tr><td colSpan="7" className="px-4 py-16 text-center">
+                                                <tr><td colSpan="8" className="px-4 py-16 text-center">
                                                     <div className="flex flex-col items-center gap-3">
-                                                        <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                                                        <div className="w-8 h-8 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin"></div>
                                                         <p className="text-sm text-slate-500">데이터를 불러오는 중...</p>
                                                     </div>
                                                 </td></tr>
                                             ) : paginatedCourses.length === 0 ? (
-                                                <tr><td colSpan="7" className="px-4 py-16 text-center">
+                                                <tr><td colSpan="8" className="px-4 py-16 text-center">
                                                     <div className="flex flex-col items-center gap-2">
                                                         <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
                                                             <Search size={20} className="text-slate-400" />
@@ -979,26 +1032,30 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
                                                     </div>
                                                 </td></tr>
                                             ) : paginatedCourses.map(course => {
-                                                const cs = categoryStyles[course.category];
-                                                const gs = gradeStyles[course.grade];
+                                                const cs = categoryStyles[course.category] || categoryStyles['공통'];
+                                                const grade = course.grade ?? course.gradeLevel;
+                                                const gs = gradeStyles[grade] || gradeStyles[1];
                                                 return (
                                                     <tr key={course.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                                                        <td className="px-4 py-3.5"><span className="text-xs font-mono font-medium text-slate-500">{course.code}</span></td>
+                                                        <td className="px-4 py-3.5"><span className="text-xs font-mono font-semibold text-violet-700">{course.code || course.courseCode}</span></td>
                                                         <td className="px-4 py-3.5"><span className="text-sm font-medium text-slate-900">{course.title}</span></td>
-                                                        <td className="px-4 py-3.5 text-center"><span className="text-sm font-semibold text-slate-700 tabular-nums">{course.credits}</span></td>
+                                                        <td className="px-4 py-3.5 text-center">
+                                                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-md tabular-nums ${gs.bg} ${gs.text}`}>{grade}학년</span>
+                                                        </td>
                                                         <td className="px-4 py-3.5 text-center">
                                                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md ${cs.bg} ${cs.text}`}>
                                                                 <span className={`w-1.5 h-1.5 rounded-full ${cs.dot}`}></span>{course.category}
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-3.5 text-center">
-                                                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-md tabular-nums ${gs.bg} ${gs.text}`}>{course.grade}학년</span>
+                                                            <span className="text-xs font-mono text-slate-500">{prereqCodesByCourse[course.id] || '-'}</span>
                                                         </td>
+                                                        <td className="px-4 py-3.5 text-center"><span className="text-sm font-semibold text-slate-700 tabular-nums">{course.credits}</span></td>
                                                         <td className="px-4 py-3.5 text-center"><span className="text-xs text-slate-600 tabular-nums">{course.semester}학기</span></td>
-                                                        <td className="px-4 py-3.5">
+                                                        <td className="px-4 py-3.5 text-center">
                                                             <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                                                 <button onClick={() => { setEditingCourse(course); setModalOpen(true); }}
-                                                                        className="w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors" title="수정">
+                                                                        className="w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:bg-violet-50 hover:text-violet-600 transition-colors" title="수정">
                                                                     <Pencil size={14} />
                                                                 </button>
                                                                 <button onClick={() => setDeleteTarget(course)}
@@ -1033,7 +1090,7 @@ export default function AdminDashboard({ onSwitchToMain, onLogout }) {
                                                     else p = currentPage - 3 + i;
                                                     return (
                                                         <button key={p} onClick={() => setPage(p)}
-                                                                className={`w-8 h-8 rounded-md text-xs font-medium tabular-nums transition-all ${currentPage === p ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-white hover:border-slate-300 border border-transparent'}`}>{p}</button>
+                                                                className={`w-8 h-8 rounded-md text-xs font-medium tabular-nums transition-all ${currentPage === p ? 'bg-violet-600 text-white' : 'text-slate-600 hover:bg-white hover:border-slate-300 border border-transparent'}`}>{p}</button>
                                                     );
                                                 })}
                                                 <button onClick={() => setPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}
