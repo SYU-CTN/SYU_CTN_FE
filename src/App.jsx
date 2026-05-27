@@ -1,20 +1,24 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
-import MyPage from './pages/MyPage'; // 🌟 1. 마이페이지 컴포넌트를 불러옵니다!
+import MyPage from './pages/MyPage';
+
+import CurriculumChatPage from './pages/CurriculumChatPage';
+import './styles/App.css';
 
 function App() {
     return (
         <BrowserRouter>
             <Routes>
-                {/* 기본 경로로 오면 로그인 페이지로 이동 */}
-                <Route path="/" element={<Navigate to="/login" replace />} />
+                {/* 질문자님이 만드신 기존 페이지들 */}
+                <Route path="/" element={<LoginPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
-
-                {/* 🌟 2. 로그인 성공 후 이동할 마이페이지 주소를 등록합니다! */}
                 <Route path="/mypage" element={<MyPage />} />
+
+                {/* 💡 팀원분이 만든 채팅 페이지를 라우터에 추가 */}
+                <Route path="/chat" element={<CurriculumChatPage />} />
             </Routes>
         </BrowserRouter>
     );
