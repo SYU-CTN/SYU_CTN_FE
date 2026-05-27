@@ -18,8 +18,9 @@ function ChatArea({
   return (
     <section className="chat-area" aria-label="AI 상담">
       <div className="intro">
+        <span>AI Curriculum Advisor</span>
         <h2>커리큘럼, 무엇이 궁금하신가요?</h2>
-        <p>학년/전공 기준으로 과목 순서와 이수 경로를 안내해드려요.</p>
+        <p>학년, 전공, 이수 과목을 기준으로 다음 학기 추천 경로를 안내합니다.</p>
       </div>
 
       <QuickQuestionList

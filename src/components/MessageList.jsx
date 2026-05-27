@@ -10,7 +10,7 @@ function MessageList({ messages }) {
 
       <article className="tip">
         <strong>맞춤 추천 팁</strong>
-        <p>학년/전공/이수과목을 입력하면 다음 학기 추천 로드맵을 자동으로 계산해드려요.</p>
+        <p>학년, 전공, 이수한 과목을 함께 입력하면 다음 학기 추천 로드맵을 더 구체적으로 계산합니다.</p>
       </article>
     </div>
   )

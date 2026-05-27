@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import MyPage from './pages/MyPage';
@@ -10,6 +10,7 @@ import CurriculumChatPage from './pages/CurriculumChatPage';
 import './styles/App.css';
 
 function CurriculumManager({ initialView = 'main' }) {
+    const navigate = useNavigate();
     const [isAdmin, setIsAdmin] = useState(() => {
         const savedRole = localStorage.getItem('user_role');
         return savedRole === 'ADMIN' || savedRole === 'INSTRUCTOR';
@@ -43,6 +44,7 @@ function CurriculumManager({ initialView = 'main' }) {
             {view === 'main' ? (
                 <MainPage
                     isAdmin={isAdmin}
+                    onSwitchToChat={() => navigate('/chat')}
                     onSwitchToAdmin={() => setView('admin')}
                     onLogout={handleLogout}
                 />

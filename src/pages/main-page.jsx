@@ -479,7 +479,7 @@ function CourseFormModal({ isOpen, onClose, editingCourse, onRefresh }) {
     );
 }
 
-export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onLogout } = {}) {
+export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onSwitchToChat, onLogout } = {}) {
     const [isAdmin, setIsAdmin] = useState(() => {
         if (typeof isAdminProp === 'boolean') return isAdminProp;
         const savedRole = localStorage.getItem('user_role');
@@ -789,7 +789,7 @@ export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onLogout } = {
 
                         <div style={{ padding: 12, borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <button onClick={resetFilters} style={{ width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 500, color: '#475569', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>필터 초기화</button>
-                            <button style={{ width: '100%', padding: '9px 12px', fontSize: 12, fontWeight: 600, color: 'white', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: 6 }}><MessageCircle size={13} /> AI 상담</button>
+                            <button onClick={onSwitchToChat} style={{ width: '100%', padding: '9px 12px', fontSize: 12, fontWeight: 600, color: 'white', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: 6 }}><MessageCircle size={13} /> AI 상담</button>
 
                             {isAdmin && (
                                 <div style={{ marginTop: 4, paddingTop: 8, borderTop: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', gap: 6 }}>
