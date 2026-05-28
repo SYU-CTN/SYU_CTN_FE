@@ -41,7 +41,6 @@ function ChatArea({
       />
 
       <div className="session-row">
-        {sessionId && <span>{`상담 세션 #${sessionId}`}</span>}
         <button type="button" onClick={onDiscardSession}>
           상담 종료
         </button>

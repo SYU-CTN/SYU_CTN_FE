@@ -24,13 +24,13 @@ const LoginPage = () => {
                 localStorage.setItem('token', response.data.accessToken);
                 localStorage.setItem('loggedInId', loginData.loginId);
                 alert(`로그인 성공! 권한: ${response.data.role}`);
-                navigate('/mypage'); // 🌟 목적지를 /mypage 로 변경!
+                navigate('/main'); // 🌟 목적지를 /mypage 로 변경!
             }
             // 2. 백엔드에서 일반 글자("로그인 성공")만 보내주는 경우
             else if (typeof response.data === 'string' || response.status === 200) {
                 localStorage.setItem('loggedInId', loginData.loginId);
                 alert('로그인 성공!');
-                navigate('/mypage'); // 🌟 목적지를 /mypage 로 변경!
+                navigate('/main'); // 🌟 목적지를 /mypage 로 변경!
             }
 
         } catch (error) {

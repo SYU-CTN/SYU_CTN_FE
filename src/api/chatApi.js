@@ -1,5 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
+const getLoggedInId = () => localStorage.getItem('loggedInId') || ''
+
+const withLoginId = (path) => {
+  const loginId = encodeURIComponent(getLoggedInId())
+  return loginId ? `${path}?loginId=${loginId}` : path
+}
+
 const request = async (path, options = {}) => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -28,20 +35,21 @@ const request = async (path, options = {}) => {
 }
 
 export const startChatSession = () =>
-  request('/api/v1/chat/sessions/start', {
+  request(withLoginId('/api/v1/chat/sessions/start'), {
     method: 'POST',
   })
 
 export const deleteChatSession = (sessionId) =>
-  request(`/api/v1/chat/sessions/${sessionId}`, {
+  request(withLoginId(`/api/v1/chat/sessions/${sessionId}`), {
     method: 'DELETE',
   })
 
-export const askChatQuestion = ({ sessionId, question }) =>
-  request('/api/v1/chat/sessions/ask', {
+export const askChatQuestion = ({ sessionId, question }) => {
+  return request(withLoginId('/api/v1/chat/sessions/ask'), {
     method: 'POST',
     body: JSON.stringify({
       sessionId,
       question,
     }),
   })
+}

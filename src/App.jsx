@@ -56,12 +56,20 @@ function CurriculumManager({ initialView = 'main' }) {
             )}
 
             {!isAdmin && (
-                <button
-                    onClick={() => setLoginOpen(true)}
-                    className="fixed right-4 top-4 z-[100000] rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-violet-600/25 transition-colors hover:bg-violet-700"
-                >
-                    관리자 로그인
-                </button>
+                <div className="fixed right-4 top-3 z-[100000] flex gap-2">
+                    <button
+                        onClick={() => navigate('/mypage')}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-lg shadow-slate-900/5 transition-colors hover:bg-slate-50"
+                    >
+                        마이페이지
+                    </button>
+                    <button
+                        onClick={() => setLoginOpen(true)}
+                        className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-violet-600/25 transition-colors hover:bg-violet-700"
+                    >
+                        관리자 로그인
+                    </button>
+                </div>
             )}
 
             {loginOpen && (

@@ -140,7 +140,7 @@ const MyPage = () => {
                     <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>
                         {isStaff ? '👨‍💼 교직원 마이페이지' : '🧑‍🎓 학생 마이페이지'}
                     </h2>
-                    <button onClick={() => navigate('/home')} style={styles.mainButton}>메인페이지</button>
+                    <button onClick={() => navigate('/main')} style={styles.mainButton}>메인페이지</button>
                 </div>
 
                 {/* 상단 통계 그리드 */}
