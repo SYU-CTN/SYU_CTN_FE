@@ -2,6 +2,19 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
+const normalizeRole = (loginResult) => {
+    const rawRole = typeof loginResult === 'object' && loginResult !== null
+        ? loginResult.role || loginResult.userType || loginResult.authority
+        : null;
+    const upperRole = String(rawRole || 'STUDENT').toUpperCase();
+
+    if (upperRole === 'STAFF' || upperRole === 'INSTRUCTOR' || upperRole === 'ADMIN') {
+        return upperRole === 'STAFF' ? 'INSTRUCTOR' : upperRole;
+    }
+
+    return 'STUDENT';
+};
+
 const LoginPage = () => {
     const navigate = useNavigate();
     const [loginData, setLoginData] = useState({
@@ -18,21 +31,16 @@ const LoginPage = () => {
         e.preventDefault();
         try {
             const response = await api.post('/api/v1/auth/login', loginData);
+            const loginResult = response.data;
+            const role = normalizeRole(loginResult);
 
-            // 1. 백엔드에서 객체(JWT 토큰)를 보내주는 경우
-            if (response.data && response.data.accessToken) {
-                localStorage.setItem('token', response.data.accessToken);
-                localStorage.setItem('loggedInId', loginData.loginId);
-                alert(`로그인 성공! 권한: ${response.data.role}`);
-                navigate('/main'); // 🌟 목적지를 /mypage 로 변경!
-            }
-            // 2. 백엔드에서 일반 글자("로그인 성공")만 보내주는 경우
-            else if (typeof response.data === 'string' || response.status === 200) {
-                localStorage.setItem('loggedInId', loginData.loginId);
-                alert('로그인 성공!');
-                navigate('/main'); // 🌟 목적지를 /mypage 로 변경!
+            if (loginResult && typeof loginResult === 'object' && loginResult.accessToken) {
+                localStorage.setItem('token', loginResult.accessToken);
             }
 
+            localStorage.setItem('loggedInId', loginData.loginId);
+            localStorage.setItem('user_role', role);
+            navigate('/main');
         } catch (error) {
             const errorMessage = typeof error.response?.data === 'string'
                 ? error.response.data
@@ -45,7 +53,7 @@ const LoginPage = () => {
         <div style={styles.pageContainer}>
             <div style={styles.card}>
                 <div style={styles.header}>
-                    <span style={{ fontSize: '40px' }}>📖✏️</span>
+                    <span style={{ fontSize: '40px' }}>🎓</span>
                     <h2 style={styles.title}>커리큘럼 트리 네비게이터</h2>
                 </div>
 

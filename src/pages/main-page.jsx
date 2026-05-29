@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Search, BookOpen, Settings, Users, X, GitBranch, ChevronRight, Info, Layers, MessageCircle, Plus, Minus, Maximize2, LogOut, Move, GripVertical, Save, RotateCcw } from 'lucide-react';
 import { courseApi, prerequisiteApi } from '../constants/api.js'; // 💡 도연님 로컬 트랙 정석 경로로 밀봉
+import { fetchStudentCourseRecords, getCourseRecordId, loadStudentCourseRecords, registerCompletedCourseRecord } from '../utils/studentRecords.js';
 
 const tracks = [
     { id: '공통', label: '공통', dot: 'bg-slate-500', text: 'text-slate-700', bg: 'bg-slate-50', cardBorder: '#cbd5e1' },
@@ -200,7 +201,7 @@ function roundedPath(points) {
     return path;
 }
 
-function CourseCard({ course, position, onClick, selected, dimmed, related, isDragMode, onDragStart, isDragging, isAdmin, onEditClick }) {
+function CourseCard({ course, position, onClick, onDoubleClick, selected, dimmed, related, isDragMode, onDragStart, isDragging, isAdmin, onEditClick, isCompleted }) {
     const track = tracks.find(t => t.id === course.category) || tracks[0];
     let borderColor = track.cardBorder;
     let bgColor = '#ffffff';
@@ -213,6 +214,11 @@ function CourseCard({ course, position, onClick, selected, dimmed, related, isDr
         bgColor = '#eef2ff';
         shadow = '0 6px 20px rgba(79, 70, 229, 0.3), 0 0 0 3px rgba(79, 70, 229, 0.12)';
         borderWidth = 2;
+    } else if (isCompleted) {
+        borderColor = '#ef4444';
+        bgColor = '#fff7f7';
+        shadow = '0 4px 14px rgba(239, 68, 68, 0.22)';
+        borderWidth = 2.5;
     } else if (related) {
         borderColor = '#f59e0b';
         bgColor = '#fffbeb';
@@ -233,6 +239,11 @@ function CourseCard({ course, position, onClick, selected, dimmed, related, isDr
         <div
             onMouseDown={handleMouseDown}
             onClick={isDragMode ? undefined : () => onClick(course)}
+            onDoubleClick={isDragMode ? undefined : (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDoubleClick?.(course);
+            }}
             style={{
                 position: 'absolute', left: position.x, top: position.y, width: position.width, height: position.height,
                 background: bgColor, border: `${borderWidth}px solid ${borderColor}`, borderRadius: 6,
@@ -255,6 +266,9 @@ function CourseCard({ course, position, onClick, selected, dimmed, related, isDr
             )}
             {isDragMode && (
                 <div style={{ position: 'absolute', top: 3, right: 4, color: '#94a3b8', opacity: 0.6 }}><GripVertical size={10} /></div>
+            )}
+            {isCompleted && !isDragMode && (
+                <div style={{ position: 'absolute', left: 5, top: 5, width: 7, height: 7, borderRadius: '50%', background: '#ef4444' }} />
             )}
             <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', wordBreak: 'keep-all', width: '100%', paddingRight: (isAdmin && !isDragMode) ? '10px' : '0' }}>
                 {course.title}
@@ -550,6 +564,7 @@ export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onSwitchToChat
 
     const [courses, setCourses] = useState([]);
     const [prerequisites, setPrerequisites] = useState([]);
+    const [completedCourseIds, setCompletedCourseIds] = useState(() => new Set(loadStudentCourseRecords().map((record) => String(record.subjectId))));
     const [loading, setLoading] = useState(true);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [search, setSearch] = useState('');
@@ -593,6 +608,17 @@ export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onSwitchToChat
 
     useEffect(() => {
         loadData();
+    }, []);
+
+    useEffect(() => {
+        const refreshCompletedCourses = () => {
+            setCompletedCourseIds(new Set(loadStudentCourseRecords().map((record) => String(record.subjectId))));
+        };
+        fetchStudentCourseRecords().then((records) => {
+            setCompletedCourseIds(new Set(records.map((record) => String(record.subjectId))));
+        });
+        window.addEventListener('storage', refreshCompletedCourses);
+        return () => window.removeEventListener('storage', refreshCompletedCourses);
     }, []);
 
     useEffect(() => {
@@ -771,6 +797,14 @@ export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onSwitchToChat
         setSelectedCourse(prev => prev?.id === course.id ? null : course);
     };
 
+    const handleCourseComplete = async (course) => {
+        if (isAdmin || isDragMode) return;
+        const { added, records } = await registerCompletedCourseRecord(course);
+        setCompletedCourseIds(new Set(records.map((record) => String(record.subjectId))));
+        setSelectedCourse(course);
+        alert(added ? `${course.title} 과목을 수강 완료로 등록했습니다.` : '이미 수강 완료로 등록된 과목입니다.');
+    };
+
     const resetFilters = () => {
         setSearch('');
         setGradeFilters({ 1: true, 2: true, 3: true, 4: true });
@@ -936,6 +970,7 @@ export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onSwitchToChat
                                                         course={course}
                                                         position={pos}
                                                         onClick={handleCardClick}
+                                                        onDoubleClick={handleCourseComplete}
                                                         selected={selectedCourse?.id === course.id}
                                                         related={related.has(course.id)}
                                                         dimmed={selectedCourse && selectedCourse.id !== course.id && !related.has(course.id)}
@@ -943,6 +978,7 @@ export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onSwitchToChat
                                                         onDragStart={handleDragStart}
                                                         isDragging={dragging?.course?.id === course.id}
                                                         isAdmin={isAdmin}
+                                                        isCompleted={completedCourseIds.has(getCourseRecordId(course))}
                                                         onEditClick={(c) => { setEditingCourse(c); setIsModalOpen(true); }}
                                                     />
                                                 );

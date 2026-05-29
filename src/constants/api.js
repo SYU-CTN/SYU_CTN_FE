@@ -1,9 +1,17 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
+});
+
+apiClient.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
 });
 
 export const courseApi = {
@@ -32,6 +40,13 @@ export const courseApi = {
 
     delete: async (id) => {
         const response = await apiClient.delete(`/api/v1/courses/${id}`);
+        return response.data;
+    },
+
+    uploadSyllabus: async (id, file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await apiClient.post(`/api/v1/courses/${id}/syllabus`, formData);
         return response.data;
     },
 };
