@@ -8,7 +8,7 @@ const MyPage = () => {
     const [activeTab, setActiveTab] = useState('profile');
     const [selectedGrade, setSelectedGrade] = useState(1);
 
-    // 사용자 정보 상태 관리
+    // 🌟 사용자 정보 상태 (교직원 통계용 기본값 추가)
     const [userInfo, setUserInfo] = useState({
         name: '',
         loginId: '',
@@ -18,7 +18,10 @@ const MyPage = () => {
         phone: '',
         password: '',
         userType: 'STUDENT',
-        role: 'STUDENT' // 🌟 안전한 권한 체크를 위해 role 추가
+        role: 'STUDENT', // 안전한 권한 체크를 위해 role 추가
+        assignedStudentCount: 0, // 관리자 통계용
+        pendingApprovals: 0,     // 관리자 통계용
+        registeredNotices: 0     // 관리자 통계용
     });
 
     const [newPassword, setNewPassword] = useState('');
@@ -37,12 +40,13 @@ const MyPage = () => {
                     return;
                 }
 
-                // 🌟 수정됨: 백엔드 주소 규격에 맞게 앞에 /api/v1 추가!
+                // 백엔드 주소 규격에 맞게 앞에 /api/v1 추가
                 const response = await api.get(`/api/v1/auth/me?loginId=${currentId}`);
-                setUserInfo({
+                setUserInfo(prev => ({
+                    ...prev,
                     ...response.data,
                     password: ''
-                });
+                }));
             } catch (error) {
                 console.error("데이터 로딩 실패:", error);
             }
@@ -51,7 +55,7 @@ const MyPage = () => {
         // 2. 커리큘럼 DB 데이터 불러오기 함수
         const fetchCurriculum = async () => {
             try {
-                // 백엔드 API 명세에 맞춰 엔드포인트 수정 (필요시 앞에 /api/v1 추가)
+                // 백엔드 API 명세에 맞춰 엔드포인트 수정
                 const response = await api.get('/api/v1/subjects');
                 setCurriculumList(response.data);
             } catch (error) {
@@ -63,13 +67,12 @@ const MyPage = () => {
         fetchCurriculum();
     }, [navigate]);
 
-    // 🌟 수정됨: userType이 STAFF이거나 role이 ADMIN일 때 모두 교직원으로 완벽하게 인식!
+    // userType이 STAFF이거나 role이 ADMIN일 때 모두 교직원으로 완벽하게 인식
     const isStaff = userInfo.userType === 'STAFF' || userInfo.userType === '교직원' || userInfo.role === 'ADMIN';
 
     const handleLogout = async () => {
         if (window.confirm("로그아웃 하시겠습니까?")) {
             try {
-                // 🌟 수정됨: 로그아웃 주소도 앞에 /api/v1 추가
                 await api.post('/api/v1/auth/logout');
                 localStorage.removeItem('loggedInId');
                 localStorage.removeItem('token');
@@ -100,7 +103,6 @@ const MyPage = () => {
                 password: newPassword
             };
 
-            // 🌟 수정됨: 비밀번호 변경 주소도 앞에 /api/v1 추가
             await api.put('/api/v1/auth/update-password', submitData);
             alert('비밀번호가 성공적으로 변경되었습니다.');
             setNewPassword('');
@@ -111,23 +113,45 @@ const MyPage = () => {
         }
     };
 
-    // 학생용 통계 데이터 (7개 박스)
+    // ==========================================
+    // 📈 [학생용] 실시간 통계 데이터 계산 로직
+    // ==========================================
+    const totalSubjects = curriculumList.length;
+    // DB에서 받아온 isCompleted 값으로 이수 완료 여부 파악
+    const completedSubjects = curriculumList.filter(subject => subject.isCompleted === true).length;
+    const incompleteSubjects = totalSubjects - completedSubjects;
+
+    const REQUIRED_CREDITS = 85; // 총 요구 학점 고정
+
+    // 취득 학점 합산 (기존 코드의 subject.credit 필드 사용)
+    const acquiredCredits = curriculumList
+        .filter(subject => subject.isCompleted === true)
+        .reduce((sum, subject) => sum + (subject.credit || 0), 0);
+
+    const completionRate = acquiredCredits > 0
+        ? ((acquiredCredits / REQUIRED_CREDITS) * 100).toFixed(1)
+        : 0;
+
+    const remainingCredits = Math.max(0, REQUIRED_CREDITS - acquiredCredits);
+
     const studentStats = [
-        { label: '전체 과목 수', value: '12과목' },
-        { label: '이수 완료', value: '5과목' },
-        { label: '미이수', value: '7과목' },
-        { label: '총 요구 학점', value: '35학점' },
-        { label: '취득 학점', value: '14학점' },
-        { label: '이수율', value: '40%' },
-        { label: '남은 학점', value: '21학점' },
+        { label: '전체 과목 수', value: `${totalSubjects}과목` },
+        { label: '이수 완료', value: `${completedSubjects}과목` },
+        { label: '미이수', value: `${incompleteSubjects}과목` },
+        { label: '총 요구 학점', value: `${REQUIRED_CREDITS}학점` },
+        { label: '취득 학점', value: `${acquiredCredits}학점` },
+        { label: '이수율', value: `${completionRate}%` },
+        { label: '남은 학점', value: `${remainingCredits}학점` },
     ];
 
-    // 교직원용 통계 데이터 (4개 박스)
+    // ==========================================
+    // 👨‍💼 [교직원용] 실시간 통계 데이터 로직
+    // ==========================================
     const staffStats = [
-        { label: '담당 학생 수', value: '120명' },
-        { label: '관리 커리큘럼', value: '4개' },
-        { label: '결재 대기', value: '3건' },
-        { label: '공지사항 등록', value: '15건' },
+        { label: '담당 학생 수', value: `${userInfo.assignedStudentCount || 0}명` },
+        { label: '관리 커리큘럼', value: `${totalSubjects}개` }, // 전체 커리큘럼 개수 연동
+        { label: '결재 대기', value: `${userInfo.pendingApprovals || 0}건` },
+        { label: '공지사항 등록', value: `${userInfo.registeredNotices || 0}건` },
     ];
 
     const displayStats = isStaff ? staffStats : studentStats;
@@ -140,10 +164,10 @@ const MyPage = () => {
                     <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>
                         {isStaff ? '👨‍💼 교직원 마이페이지' : '🧑‍🎓 학생 마이페이지'}
                     </h2>
-                    <button onClick={() => navigate('/main')} style={styles.mainButton}>메인페이지</button>
+                    <button onClick={() => navigate('/home')} style={styles.mainButton}>메인페이지</button>
                 </div>
 
-                {/* 상단 통계 그리드 */}
+                {/* 🌟 다이내믹 상단 통계 그리드 */}
                 <div style={styles.statsGrid}>
                     {displayStats.map((stat, index) => (
                         <div key={index} style={styles.statCard}>
@@ -155,7 +179,7 @@ const MyPage = () => {
 
                 <div style={styles.mainContent}>
 
-                    {/* 왼쪽 사이드바 영역 */}
+                    {/* 왼쪽 사이드바 영역 (개인정보 DB 연동) */}
                     <div style={styles.leftSidebar}>
                         <div
                             style={{ ...styles.menuCard, border: activeTab === 'profile' ? '2px solid #2d73f5' : '1px solid #eee' }}
@@ -260,8 +284,8 @@ const MyPage = () => {
                                                     {subject.subjectName} <span style={{ color: '#888', fontWeight: 'normal', fontSize: '13px' }}>({subject.credit}학점)</span>
                                                 </div>
                                                 <span style={subject.isRequired ? styles.badgeRequired : styles.badgeElective}>
-                          {subject.isRequired ? '전공필수' : '전공선택'}
-                        </span>
+                                                    {subject.isRequired ? '전공필수' : '전공선택'}
+                                                </span>
                                             </div>
                                         ))
                                     ) : (
@@ -316,9 +340,9 @@ const MyPage = () => {
                                                     {subject.subjectName} <span style={{ color: '#888', fontWeight: 'normal', fontSize: '13px' }}>({subject.credit}학점)</span>
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                          <span style={subject.isRequired ? styles.badgeRequired : styles.badgeElective}>
-                            {subject.isRequired ? '전공필수' : '전공선택'}
-                          </span>
+                                                    <span style={subject.isRequired ? styles.badgeRequired : styles.badgeElective}>
+                                                        {subject.isRequired ? '전공필수' : '전공선택'}
+                                                    </span>
                                                     <button style={styles.smallActionBtn}>수정</button>
                                                 </div>
                                             </div>
