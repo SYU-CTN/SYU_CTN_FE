@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Search, BookOpen, Settings, Users, X, GitBranch, ChevronRight, Info, Layers, MessageCircle, Plus, Minus, Maximize2, LogOut, Move, GripVertical, Save, RotateCcw } from 'lucide-react';
+import { Search, BookOpen, Settings, Users, X, GitBranch, ChevronRight, Info, Layers, MessageCircle, Plus, Minus, Maximize2, LogOut, Move, GripVertical, Save, RotateCcw, FileText, Upload, ExternalLink } from 'lucide-react';
 import { courseApi, prerequisiteApi } from '../constants/api.js'; // 💡 도연님 로컬 트랙 정석 경로로 밀봉
 
 const tracks = [
@@ -295,7 +295,20 @@ function SnapHighlight({ snapTarget, layout, effectiveZoom, canvasOffset }) {
     );
 }
 
-function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse, isAdmin, onEditCourse }) {
+
+const getSyllabusUrl = (course) => course?.syllabusUrl || course?.syllabusFileUrl || course?.syllabusPdfUrl || course?.lecturePlanUrl || course?.pdfUrl || '';
+
+function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse, isAdmin, onEditCourse, onRefreshCourse }) {
+    const [selectedPdf, setSelectedPdf] = useState(null);
+    const [uploadingPdf, setUploadingPdf] = useState(false);
+    const [pdfError, setPdfError] = useState('');
+
+    useEffect(() => {
+        setSelectedPdf(null);
+        setUploadingPdf(false);
+        setPdfError('');
+    }, [course?.id]);
+
     if (!course) {
         return (
             <div style={{ padding: '40px 24px', textAlign: 'center' }}>
@@ -307,12 +320,33 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse, isAdm
             </div>
         );
     }
+
     const track = tracks.find(t => t.id === course.category) || tracks[0];
     const currentCode = course.courseCode || course.code || '';
-
-    // 🎯 [수리 완료] 팀원 코드에서 누락되어 폭탄 터뜨리던 핵심 선수/후속 변수를 완벽하게 정밀 타격 복원
     const prereqs = allCourses.filter(c => edges.some(([pre, post]) => post === course.id && pre === c.id));
     const nextCourses = allCourses.filter(c => edges.some(([pre, post]) => pre === course.id && post === c.id));
+    const syllabusUrl = getSyllabusUrl(course);
+
+    const handleSyllabusUpload = async () => {
+        if (!selectedPdf || uploadingPdf) return;
+        if (selectedPdf.type !== 'application/pdf' && !selectedPdf.name.toLowerCase().endsWith('.pdf')) {
+            setPdfError('PDF 파일만 업로드할 수 있습니다.');
+            return;
+        }
+
+        setUploadingPdf(true);
+        setPdfError('');
+        try {
+            await courseApi.uploadSyllabus(course.id, selectedPdf);
+            setSelectedPdf(null);
+            await onRefreshCourse?.();
+        } catch (error) {
+            console.error('Syllabus upload failed:', error);
+            setPdfError('강의계획서 업로드에 실패했습니다.');
+        } finally {
+            setUploadingPdf(false);
+        }
+    };
 
     return (
         <div>
@@ -324,10 +358,7 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse, isAdm
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {isAdmin && (
-                            <button
-                                onClick={() => onEditCourse(course)}
-                                style={{ height: 28, padding: '0 9px', borderRadius: 7, border: '1px solid #ddd6fe', background: '#f5f3ff', color: '#6d28d9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}
-                            >
+                            <button onClick={() => onEditCourse(course)} style={{ height: 28, padding: '0 9px', borderRadius: 7, border: '1px solid #ddd6fe', background: '#f5f3ff', color: '#6d28d9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>
                                 <Settings size={13} /> 수정
                             </button>
                         )}
@@ -337,8 +368,9 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse, isAdm
                 <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#94a3b8', marginBottom: 4 }}>{currentCode}</p>
                 <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', lineHeight: 1.3, margin: 0 }}>{course.title}</h3>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, background: '#f1f5f9' }}>
-                {[['학년', `${course.gradeLevel || course.grade}학년`], ['학기', `${course.semester}학기`], ['학점', course.credits]].map(([label, val]) => (
+                {[['학년', (course.gradeLevel || course.grade) + '학년'], ['학기', course.semester + '학기'], ['학점', course.credits]].map(([label, val]) => (
                     <div key={label} style={{ background: '#fff', padding: '10px 4px', textAlign: 'center' }}>
                         <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
                         <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', margin: 0 }}>{val}</p>
@@ -346,7 +378,31 @@ function DetailPanel({ course, onClose, allCourses, edges, onSelectCourse, isAdm
                 ))}
             </div>
 
-            {/* 🎯 [수리 완료] 바인딩이 풀리면서 에러를 내뿜던 데이터 루프 구역 완벽 마감 복구 */}
+            <div style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                    <FileText size={14} color="#6366f1" />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>강의계획서</span>
+                </div>
+                {syllabusUrl ? (
+                    <a href={syllabusUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 10px', borderRadius: 7, border: '1px solid #e0e7ff', background: '#eef2ff', color: '#4338ca', textDecoration: 'none', fontSize: 12, fontWeight: 700 }}>
+                        PDF 열기
+                        <ExternalLink size={13} />
+                    </a>
+                ) : (
+                    <p style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>등록된 PDF가 없습니다.</p>
+                )}
+                {isAdmin && (
+                    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <input type="file" accept="application/pdf,.pdf" onChange={(event) => setSelectedPdf(event.target.files?.[0] || null)} disabled={uploadingPdf} style={{ width: '100%', fontSize: 11, color: '#475569' }} />
+                        <button type="button" onClick={handleSyllabusUpload} disabled={!selectedPdf || uploadingPdf} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid #ddd6fe', background: selectedPdf && !uploadingPdf ? '#f5f3ff' : '#f8fafc', color: selectedPdf && !uploadingPdf ? '#6d28d9' : '#94a3b8', cursor: selectedPdf && !uploadingPdf ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
+                            <Upload size={13} />
+                            {uploadingPdf ? '업로드 중...' : 'PDF 업로드'}
+                        </button>
+                        {pdfError && <p style={{ margin: 0, fontSize: 11, color: '#ef4444' }}>{pdfError}</p>}
+                    </div>
+                )}
+            </div>
+
             {[{ label: '선수 과목', color: '#fbbf24', items: prereqs }, { label: '후속 과목', color: '#818cf8', items: nextCourses }].map(({ label, color, items }) => (
                 <div key={label} style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
@@ -809,12 +865,32 @@ export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onSwitchToChat
                             <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.2, margin: 0 }}>컴퓨터공학부 교과과정 이수 체계도</p>
                         </div>
                     </div>
-                    {isAdmin && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#eef2ff', borderRadius: 8, border: '1px solid #e0e7ff' }}>
-                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1' }} />
-                            <span style={{ fontSize: 12, fontWeight: 500, color: '#4f46e5' }}>최고 관리자 모드</span>
-                        </div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {isAdmin ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#eef2ff', borderRadius: 8, border: '1px solid #e0e7ff' }}>
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1' }} />
+                                <span style={{ fontSize: 12, fontWeight: 500, color: '#4f46e5' }}>관리자 모드</span>
+                            </div>
+                        ) : (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => window.location.assign('/mypage')}
+                                    style={{ height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', color: '#334155', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}
+                                >
+                                    마이페이지
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleLogout}
+                                    style={{ height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid #fecaca', background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
+                                >
+                                    <LogOut size={13} />
+                                    로그아웃
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -982,6 +1058,7 @@ export function MainPage({ isAdmin: isAdminProp, onSwitchToAdmin, onSwitchToChat
                             onSelectCourse={setSelectedCourse}
                             isAdmin={isAdmin}
                             onEditCourse={(course) => { setEditingCourse(course); setIsModalOpen(true); }}
+                            onRefreshCourse={loadData}
                         />
                     </aside>
                 </div>
