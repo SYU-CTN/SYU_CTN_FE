@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
     getCurrentLoginId,
+    getStudentRecordsKey,
     fetchStudentCourseRecords,
     mergeCurriculumWithRecords,
     saveCourseRecordScore,
@@ -15,6 +16,7 @@ const MyPage = () => {
     const [activeTab, setActiveTab] = useState('profile');
     const [selectedGrade, setSelectedGrade] = useState(1);
     const [newPassword, setNewPassword] = useState('');
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [curriculumList, setCurriculumList] = useState([]);
     const [userInfo, setUserInfo] = useState({
         name: '',
@@ -98,6 +100,44 @@ const MyPage = () => {
         navigate('/login');
     };
 
+    const handleDeleteAccount = async () => {
+        const loginId = userInfo.loginId || localStorage.getItem('loggedInId');
+        if (!loginId) {
+            alert('로그인 정보를 확인할 수 없습니다.');
+            navigate('/login');
+            return;
+        }
+
+        if (!window.confirm('회원탈퇴를 진행하면 계정과 학습 기록을 복구할 수 없습니다. 정말 탈퇴하시겠습니까?')) {
+            return;
+        }
+
+        const confirmation = window.prompt('회원탈퇴를 진행하려면 "탈퇴"를 입력해주세요.');
+        if (confirmation !== '탈퇴') {
+            alert('회원탈퇴가 취소되었습니다.');
+            return;
+        }
+
+        setIsDeletingAccount(true);
+        try {
+            await api.delete(`/api/v1/auth/me?loginId=${encodeURIComponent(loginId)}`);
+            localStorage.removeItem(getStudentRecordsKey(loginId));
+            localStorage.removeItem('loggedInId');
+            localStorage.removeItem('token');
+            localStorage.setItem('user_role', 'STUDENT');
+            alert('회원탈퇴가 완료되었습니다.');
+            navigate('/login');
+        } catch (error) {
+            console.error('회원탈퇴 실패:', error);
+            const errorMessage = typeof error.response?.data === 'string'
+                ? error.response.data
+                : (error.response?.data?.message || '회원탈퇴에 실패했습니다.');
+            alert(errorMessage);
+        } finally {
+            setIsDeletingAccount(false);
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setUserInfo(prev => ({ ...prev, [name]: value }));
@@ -133,13 +173,11 @@ const MyPage = () => {
     };
 
     const studentStats = [
-        { label: '전체 과목 수', value: `${totalSubjects}과목` },
-        { label: '이수 완료', value: `${completedSubjects.length}과목` },
-        { label: '미이수', value: `${incompleteSubjects}과목` },
-        { label: '총 요구 학점', value: `${REQUIRED_CREDITS}학점` },
-        { label: '취득 학점', value: `${acquiredCredits}학점` },
+        { label: '전공 이수 완료 과목', value: `${completedSubjects.length}과목` },
+        { label: '전공 요구 학점', value: `${REQUIRED_CREDITS}학점` },
+        { label: '전공 취득 학점', value: `${acquiredCredits}학점` },
         { label: '이수율', value: `${completionRate}%` },
-        { label: '남은 학점', value: `${remainingCredits}학점` },
+        { label: '남은 전공 학점', value: `${remainingCredits}학점` },
     ];
 
     const staffStats = [
@@ -196,6 +234,9 @@ const MyPage = () => {
                         )}
 
                         <button onClick={handleLogout} style={styles.logoutButton}>로그아웃</button>
+                        <button onClick={handleDeleteAccount} style={styles.withdrawButton} disabled={isDeletingAccount}>
+                            {isDeletingAccount ? '탈퇴 처리 중...' : '회원탈퇴'}
+                        </button>
                     </div>
 
                     <div style={styles.rightContent}>
@@ -313,6 +354,7 @@ const styles = {
     menuSubText: { fontSize: '13px', color: '#777', margin: '0 0 4px 0' },
     staffMark: { fontSize: '14px', color: '#2d73f5', marginLeft: '5px' },
     logoutButton: { width: '100%', padding: '15px', backgroundColor: '#fff', color: '#ff4d4f', border: '1px solid #ff4d4f', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' },
+    withdrawButton: { width: '100%', padding: '15px', backgroundColor: '#ff4d4f', color: '#fff', border: '1px solid #ff4d4f', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' },
     rightContent: { flex: 1, backgroundColor: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', minHeight: '520px', boxSizing: 'border-box' },
     sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
     sectionTitle: { fontSize: '24px', margin: '0 0 20px 0' },
