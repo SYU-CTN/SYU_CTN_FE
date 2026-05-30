@@ -1,121 +1,99 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import MyPage from './pages/MyPage';
 
-function App() {
-  const [count, setCount] = useState(0)
+import MainPage from './pages/main-page.jsx';
+import AdminDashboard from './constants/admin-dashboard.jsx';
+import CurriculumChatPage from './pages/CurriculumChatPage';
+import './styles/App.css';
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+const isAdminRole = (role) => role === 'ADMIN' || role === 'INSTRUCTOR' || role === 'STAFF';
+
+function CurriculumManager({ initialView = 'main' }) {
+    const navigate = useNavigate();
+    const [isAdmin, setIsAdmin] = useState(() => isAdminRole(localStorage.getItem('user_role')));
+    const [view, setView] = useState(() => initialView === 'admin' && isAdminRole(localStorage.getItem('user_role')) ? 'admin' : 'main');
+
+    useEffect(() => {
+        const checkAuth = () => {
+            const nextIsAdmin = isAdminRole(localStorage.getItem('user_role'));
+            setIsAdmin(nextIsAdmin);
+            if (!nextIsAdmin) setView('main');
+        };
+        checkAuth();
+        const interval = setInterval(checkAuth, 1000);
+        window.addEventListener('storage', checkAuth);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('storage', checkAuth);
+        };
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('loggedInId');
+        localStorage.setItem('user_role', 'STUDENT');
+        setIsAdmin(false);
+        setView('main');
+        navigate('/login');
+    };
+
+    return (
+        <div className="w-full text-left box-border" style={{ width: '100vw', textAlign: 'left' }}>
+            {view === 'admin' && isAdmin ? (
+                <AdminDashboard
+                    onSwitchToMain={() => setView('main')}
+                    onLogout={handleLogout}
+                />
+            ) : (
+                <MainPage
+                    isAdmin={isAdmin}
+                    onSwitchToChat={() => navigate('/chat')}
+                    onSwitchToAdmin={isAdmin ? () => setView('admin') : undefined}
+                    onLogout={handleLogout}
+                />
+            )}
+
+            {!isAdmin && (
+                <div className="fixed right-4 top-3 z-[100000] flex gap-2">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/mypage')}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-lg shadow-slate-900/5 transition-colors hover:bg-slate-50"
+                    >
+                        마이페이지
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 shadow-lg shadow-slate-900/5 transition-colors hover:bg-rose-50"
+                    >
+                        로그아웃
+                    </button>
+                </div>
+            )}
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    );
 }
 
-export default App
+function App() {
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<LoginPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/mypage" element={<MyPage />} />
+
+                <Route path="/main" element={<CurriculumManager />} />
+                <Route path="/admin" element={<CurriculumManager initialView="admin" />} />
+
+                <Route path="/chat" element={<CurriculumChatPage />} />
+            </Routes>
+        </BrowserRouter>
+    );
+}
+
+export default App;
